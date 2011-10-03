@@ -20,6 +20,7 @@
  */
 import java.io.BufferedReader;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
@@ -28,6 +29,9 @@ import java.util.Iterator;
 import java.util.Map;
 
 import com.csvreader.CsvReader;
+import com.csvreader.CsvWriter;
+
+import edu.rutgers.ClickerIdUtil;
 
 
 class Student{
@@ -40,6 +44,16 @@ class Student{
 
 
 public class AllTests {
+
+	
+
+		  public static float Round(float Rval, int Rpl) {
+		  float p = (float)Math.pow(10,Rpl);
+		  Rval = Rval * p;
+		  float tmp = Math.round(Rval);
+		  return (float)tmp/p;
+		  }
+		
 	
 	public static HashMap<String,Student> readStudentFile() throws IOException{
 	
@@ -61,12 +75,15 @@ public class AllTests {
 		while(reader.readRecord())
 		{
 			Student s=new Student();
-			String rawID=reader.get("ID");
+			String rawID=reader.get("ID").trim();
 			while(rawID.length()<8)
 			{
 				rawID="0"+rawID;
 			}
 			s.clickerId="#"+rawID.toUpperCase();
+			if(!ClickerIdUtil.isValidClickerId(s.clickerId)){
+			 System.out.println("Invalid Clicker ID "+s.clickerId);
+			}
 			
 			s.name=reader.get("name");
 			s.ruId=reader.get("RUID");
@@ -110,21 +127,46 @@ public class AllTests {
 		while(reader.readRecord())
 		{
 			Student s=null;
+			boolean flag=false;
 		 if(h.get(reader.get("Question"))!=null)
 		 {
-		  s= h.get(reader.get("Question"));
+		  s= h.get(reader.get("Question").trim());
+		  flag=true;
 		 }
 		 else
 		 {
+
+				String sx=reader.get("Question").trim();
+		        Iterator iterator = h.keySet().iterator();
+			     while (iterator.hasNext()) {		         
+		            String match=(String)iterator.next();
+	
+		             if(ClickerIdUtil.translate(match).compareToIgnoreCase(sx)==0 ||
+		            		ClickerIdUtil.translate(sx).compareToIgnoreCase(match)==0 ||
+		            		ClickerIdUtil.translate(match).compareToIgnoreCase(
+		            				ClickerIdUtil.translate(sx))==0){
+		            	s= h.get(match);
+		            	flag=true;
+		            	break;
+		            }
+		            
+		            else 
+		            continue;
+		            
+		        	}
+			 if(flag)
+				 ;
+			 else{
 			 System.out.println("clicker ID not found in Student Registration:" + reader.get("Question"));
 			 continue;
+			 }
 		 }
 			 
 			 
 		 s.grade=8.0f;
 		 for(int i=0;i<questionCount;i++)
 		 {
-			 if(reader.get("Question "+i).equals(answers[i]))
+			 if(reader.get("Question "+(i+1)).equals(answers[i]))
 				 s.grade+=(2*(1.0/questionCount));
 			 
 		 }
@@ -177,10 +219,14 @@ public class AllTests {
 	public static void main(String[] args) throws Exception {
 		
 		String []answers;
-		int questionCount=0;
+		int questionCount=0,ass_no;
+		System.out.println("Enter the Assesment Number");
+
+		BufferedReader br=new BufferedReader(new InputStreamReader(System.in));
+		ass_no=Integer.parseInt(br.readLine());
 		System.out.println("Enter the No.of clicker questions in the input");
 		
-		BufferedReader br=new BufferedReader(new InputStreamReader(System.in));
+		//BufferedReader br=new BufferedReader(new InputStreamReader(System.in));
 		questionCount=Integer.parseInt(br.readLine());
 		
 		answers=new String[questionCount];
@@ -212,8 +258,12 @@ public class AllTests {
 
 		readClicker(studentInfo,questionCount,answers);
 		readOnlineScores(studentInfo,questionCount,answers);		
-	
-
+		
+		System.out.println("Enter the name of output file");
+		String output=br.readLine();
+		CsvWriter xWriter=new CsvWriter(new FileWriter(output),',');
+		
+		xWriter.writeRecord(new String[]{"Student ID","Clicker ID Assesment "+ass_no+" [10]"} );
 		
 		  Iterator iterator = studentInfo.entrySet().iterator();
 	        String matchClickerId="";
@@ -221,10 +271,11 @@ public class AllTests {
 	        while (iterator.hasNext()) {
 	        	Map.Entry entry = (Map.Entry) iterator.next();
 	            Student match=(Student)entry.getValue();
+	            xWriter.writeRecord(new String[]{match.netId,Float.toString(Round(match.grade,2))});
 	            System.out.println((i+1)+":"+"Student Name "+match.name+"\nClickerID "+match.clickerId+"\nRUID "+match.ruId
-	            			+"\nGrade: "+match.grade);
+	            			+"\nGrade: "+Round(match.grade,2));
 	            i++;
 	        }
-	        
+	        xWriter.close();
 	} 
 }	        
