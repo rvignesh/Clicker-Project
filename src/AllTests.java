@@ -234,7 +234,7 @@ public class AllTests {
 		int questionCount=0;
 		String ass_no;
 		 BufferedInputStream in = new BufferedInputStream(new FileInputStream(
-	        "input.txt"));
+	        args[0]));
 		   PrintStream out = new PrintStream(new BufferedOutputStream(
 			        new FileOutputStream("test.out")));
 			    System.setIn(in);
