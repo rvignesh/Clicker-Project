@@ -18,12 +18,17 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -40,6 +45,7 @@ class Student{
 	String name;
 	String netId;
 	float grade;
+	boolean invalid_clicker_id;
 }
 
 
@@ -55,11 +61,11 @@ public class AllTests {
 		  }
 		
 	
-	public static HashMap<String,Student> readStudentFile() throws IOException{
+	public static HashMap<String,Student> readStudentFile(BufferedReader in) throws IOException{
 	
 		HashMap<String,Student> h= new HashMap<String,Student>();
 		
-		CsvReader reader=openFile("Student Data");
+		CsvReader reader=openFile("Student Data",in);
 		String[] headers;
 		if(reader.readHeaders()){
 			headers=reader.getHeaders();
@@ -82,7 +88,7 @@ public class AllTests {
 			}
 			s.clickerId="#"+rawID.toUpperCase();
 			if(!ClickerIdUtil.isValidClickerId(s.clickerId)){
-			 System.out.println("Invalid Clicker ID "+s.clickerId);
+			 s.invalid_clicker_id=true;
 			}
 			
 			s.name=reader.get("name");
@@ -96,10 +102,11 @@ public class AllTests {
 
 	 }
 	
-	public static CsvReader openFile(String kind) throws IOException{
+	public static CsvReader openFile(String kind,BufferedReader  buffer) throws IOException{
 		
 		System.out.println("Enter the path of "+kind+" File : ");
-		BufferedReader buffer=new BufferedReader(new InputStreamReader(System.in));
+	//	BufferedReader buffer=new BufferedReader(new InputStreamReader(System.in));
+	//	System.setIn(in);
 		String path=buffer.readLine();
 		
 		CsvReader reader= new CsvReader(new  InputStreamReader(
@@ -107,16 +114,17 @@ public class AllTests {
 			return reader;
 	}
 	
-	public static  void readClicker(HashMap<String,Student> h,int questionCount,String[] answers) throws IOException{
+	public static  ArrayList<String> readClicker(HashMap<String,Student> h,int questionCount,String[] answers,BufferedReader in) throws IOException{
 		
-		CsvReader reader=openFile("clicker");
+		ArrayList<String> invalid_id=new ArrayList<String>();
+		CsvReader reader=openFile("clicker",in);
 		String[] headers;
 		reader.readHeaders();
 		if(reader.readHeaders()){
 			headers=reader.getHeaders();			
 		}
 		else
-			return;
+			return null;
 		if(headers[0].compareToIgnoreCase("Question")!=0)
 		{
 		   System.out.println("Please Input a proper Clicker assessment record");  		
@@ -154,27 +162,31 @@ public class AllTests {
 		            continue;
 		            
 		        	}
-			 if(flag)
-				 ;
-			 else{
-			 System.out.println("clicker ID not found in Student Registration:" + reader.get("Question"));
-			 continue;
+			 if(!flag){
+		      invalid_id.add(reader.get("Question"));
+		      continue;
 			 }
+			 
 		 }
 			 
 			 
 		 s.grade=8.0f;
 		 for(int i=0;i<questionCount;i++)
-		 {
-			 if(reader.get("Question "+(i+1)).equals(answers[i]))
-				 s.grade+=(2*(1.0/questionCount));
+		 { boolean flagk=false;
+			 for(int j=0;j<answers[i].length();j++)
+				 if(answers[i].substring(j,j+1).compareToIgnoreCase(reader.get("Question "+(i+1)))==0)
+					flagk=true;
+			 
+			 		if(flagk)
+					 s.grade+=(2*(1.0/questionCount));
 			 
 		 }
 		 h.put(s.clickerId, s);	 
 		}
+		return invalid_id;
 	 }
-	public static  void readOnlineScores(HashMap<String,Student> h,int questionCount,String[] answers) throws IOException{
-		CsvReader reader=openFile("Sakai Scores");
+	public static  void readOnlineScores(HashMap<String,Student> h,int questionCount,String[] answers,BufferedReader in) throws IOException{
+		CsvReader reader=openFile("Sakai Scores", in);
 		String[] headers;
 		if(reader.readHeaders()){
 			headers=reader.getHeaders();
@@ -219,11 +231,18 @@ public class AllTests {
 	public static void main(String[] args) throws Exception {
 		
 		String []answers;
-		int questionCount=0,ass_no;
+		int questionCount=0;
+		String ass_no;
+		 BufferedInputStream in = new BufferedInputStream(new FileInputStream(
+	        "input.txt"));
+		   PrintStream out = new PrintStream(new BufferedOutputStream(
+			        new FileOutputStream("test.out")));
+			    System.setIn(in);
+			 //   System.setOut(out);
+			   // System.setErr(out);			    
 		System.out.println("Enter the Assesment Number");
-
 		BufferedReader br=new BufferedReader(new InputStreamReader(System.in));
-		ass_no=Integer.parseInt(br.readLine());
+		ass_no=br.readLine();
 		System.out.println("Enter the No.of clicker questions in the input");
 		
 		//BufferedReader br=new BufferedReader(new InputStreamReader(System.in));
@@ -250,14 +269,14 @@ public class AllTests {
 		}
 		
 
-		HashMap<String,Student> studentInfo=readStudentFile();
+		HashMap<String,Student> studentInfo=readStudentFile(br);
 
 		if(studentInfo==null){
 			System.exit(0);
 		}
 
-		readClicker(studentInfo,questionCount,answers);
-		readOnlineScores(studentInfo,questionCount,answers);		
+		ArrayList<String> invalid=readClicker(studentInfo,questionCount,answers,br);
+		readOnlineScores(studentInfo,questionCount,answers,br);		
 		
 		System.out.println("Enter the name of output file");
 		String output=br.readLine();
@@ -276,6 +295,12 @@ public class AllTests {
 	            			+"\nGrade: "+Round(match.grade,2));
 	            i++;
 	        }
+	        xWriter.writeRecord(new String[]{"Invalid Ids",""});
+	        for(int l=0;l<invalid.size();l++)
+	        {
+	        	xWriter.writeRecord(new String[]{"",invalid.get(l)});
+	        }
 	        xWriter.close();
+	        out.close();
 	} 
 }	        
